@@ -131,6 +131,7 @@ def main():
     driver = webdriver.Chrome(options=options)
     driver.get(PROFILE_URL)
     driver.implicitly_wait(5)
+    login_to_bluesky(driver, "myst-ake.bsky.social", "Myst94340")   
     
     filter_instance = BlueskyFilter(driver, BANWORDS)
     filter_instance.filter_posts()  # Filtrage initial
