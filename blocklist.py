@@ -73,10 +73,8 @@ def get_users_from_list(client: Client, list_name: str) -> list[str]:
     :return: Liste des utilisateurs présents dans la liste.
     """
     try:
-        # Récupérer toutes les listes de l'utilisateur connecté
         user_lists = client.app.bsky.graph.get_lists({'actor': client.me.did}).lists
         
-        # Trouver l'URI de la liste spécifiée
         list_uri = None
         for lst in user_lists:
             if lst.name == list_name:
@@ -98,6 +96,30 @@ def get_users_from_list(client: Client, list_name: str) -> list[str]:
         print(f"❌ Erreur lors de la récupération de la liste '{list_name}': {e}")
         return []
     
+def get_following_list(client: Client, username: str) -> list[str]:
+    """
+    Récupère la liste des comptes suivis par un utilisateur Bluesky.
+    
+    :param client: Instance du client Bluesky (ATProto).
+    :param username: Nom d'utilisateur (ex: "@exemple.bsky.social")
+    :return: Liste des comptes suivis (handles sous format string)
+    """
+    try:
+        # Obtenir le DID de l'utilisateur à partir de son @handle
+        actor_info = client.app.bsky.actor.get_profile({'actor': username})
+        user_did = actor_info.did
+
+        # Récupérer les "following" de l'utilisateur
+        following_data = client.app.bsky.graph.get_follows({'actor': user_did})
+        following_list = [follow.handle for follow in following_data.follows]
+
+        print(f"✅ {len(following_list)} comptes suivis trouvés pour {username}")
+        return following_list
+
+    except Exception as e:
+        print(f"❌ Erreur lors de la récupération des following de {username}: {e}")
+        return []  
+ 
 def main():
     parser = argparse.ArgumentParser(description="Ajoute un compte à la block-list Bluesky")
     parser.add_argument('account', help="Handle (@exemple.bsky.social) ou URL de profil")
@@ -110,6 +132,7 @@ def main():
         add_to_block_list(client, list_uri, did)
         print(f"Le compte {args.account} a été ajouté à la block-list avec succès.")
         print(get_users_from_list(client, "block list"))
+        print(get_following_list(client, "afpfr.bsky.social"))
     except Exception as e:
         print(f"Échec : {str(e)}")
         exit(1)
