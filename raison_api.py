@@ -1,4 +1,5 @@
 import requests
+import time 
 
 class API:
 
@@ -80,11 +81,13 @@ class API:
         except Exception as e:
             print(f"Impossible de récupérer les matadatas du projet : {e}")
 
+def call_API(elements):
+    a = API("PRJ17525", "gHWO8Hpd2LPSLkCyseUZ836NS0LtHGEFhyxIrKj0", "latest")
+    return a.api_run(elements)
+
 
 if __name__ == "__main__":
     a = API("PRJ17525", "gHWO8Hpd2LPSLkCyseUZ836NS0LtHGEFhyxIrKj0", "latest")
-
-    elements = ["is viral", "is in followed feed", "has used banword", "is 5% of followings blocked accounts"]
-
+    elements = ["is viral", "has used banword", "is 5% of followings blocked accounts"]
     res = a.api_run(elements)
-    print(res)
+    print(res.get('block post', False))

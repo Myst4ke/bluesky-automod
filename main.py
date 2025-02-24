@@ -8,10 +8,20 @@ import hashlib
 import os
 from dotenv import load_dotenv
 from blocklist import get_following_list, get_users_from_list, login
+from raison_api import call_API
 
 load_dotenv()
 viral_like_threshold = 100
 viral_repost_threshold = 100
+
+def countToInt(count:str)->int:
+    """ Return like repost count such as "2.3K" as interger or float"""
+    if count:
+        if count[-1] == "K":
+            return float(count[:-1])*1000
+        else: 
+            return int(count)
+    return 0
 
 class BlueskyFilter:
     def __init__(self, driver: webdriver.Chrome, banwords: list[str]):
@@ -67,19 +77,19 @@ class BlueskyFilter:
             like_count = like_div.text
         except:
             like_count = None  # Aucun like trouvé
-
-        return repost_count, like_count
+        print(repost_count, like_count)
+        return countToInt(repost_count), countToInt(like_count)
 
     def _is_viral(self, post_element):
         repost_count, like_count = self._get_repost_and_like_count(post_element)
-        return repost_count > 500 or like_count > 500
+        return int(repost_count) > 500 or int(like_count) > 500
     
     def _is_in_blocking_list(self, username):
         blocklist = get_users_from_list(self.client, "block list")
         return username in blocklist
     
-    def _is_in_blocking_list(self, username):
-        followingList = get_following_list(self.client, os.environ['BSKY_HANDLE'])
+    def _is_in_following_list(self, username=os.environ['BSKY_HANDLE']):
+        followingList = get_following_list(self.client, username)
         return username in followingList
     
     def _contains_banword(self, text: str) -> bool:
@@ -87,12 +97,24 @@ class BlueskyFilter:
         # print(f"{self.banwords} not in '{text}'")
         return any(banword in text for banword in self.banwords)
     
-    def is_following_blocked_account(self, threshold=5):
-        followingList = get_following_list(self.client, os.environ['BSKY_HANDLE'])
+    def is_following_blocked_account(self, username, threshold=5):
+        followingList = get_following_list(self.client, username)
         blocklist = get_users_from_list(self.client, "block list")
         intersec = len(set(followingList) & set(blocklist))
         return (intersec /len(followingList)) *100 > threshold
     
+    def create_predicates(self, post_element, post_text, username):
+        predicates = [
+            name for name, func, args in [
+                ("is viral", self._is_viral, (post_element,)),
+                ("is in blocking list", self._is_in_blocking_list, (username,)),
+                ("is in followed account", self._is_in_following_list, ()),
+                ("has used banword", self._contains_banword, (post_text,)),
+                ("is 5% of followings blocked accounts", self.is_following_blocked_account, (username,))
+            ] if func(*args)
+        ]   
+        return predicates
+        
     def filter_posts(self) -> None:
         """Safe filtering with stale element handling"""
         try:
@@ -110,12 +132,20 @@ class BlueskyFilter:
                     if post_id in self.processed_posts:
                         continue
                     
-                    if post_text and self._contains_banword(post_text):
-                        print(f"Trying to delete : {post_text[:25]}...  by {self._get_post_author(post)}, post link : {self._get_post_link(post)}")
-                        self.driver.execute_script("arguments[0].remove();", post)  # Supprime l'élément du DOM
-                        print("Post supprimé du DOM !")
-
+                    if post_text :
+                        print(f"Analyzing : {post_text[:25]}...  by {self._get_post_author(post)}, post link : {self._get_post_link(post)}")
+                        predicates = self.create_predicates(post, post_text, self._get_post_author(post))
+                        print(f"Predicates : {predicates}")
+                        if predicates:
+                            if call_API(predicates).get('block post', False):
+                                self.driver.execute_script("arguments[0].remove();", post)  # Supprime l'élément du DOM
+                                print("✅ Post supprimé du DOM !")
+                            else:
+                                print("❌ Not deleted !")
+                        else:
+                            print("❌ Not deleted !")
                     self.processed_posts.add(post_id)
+                    print("\n")
                 except StaleElementReferenceException:
                     continue
         except Exception as e:

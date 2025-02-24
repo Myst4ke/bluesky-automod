@@ -89,7 +89,7 @@ def get_users_from_list(client: Client, list_name: str) -> list[str]:
         list_items = client.app.bsky.graph.get_list({'list': list_uri}).items
         users = [item.subject.handle for item in list_items]
 
-        print(f"✅ {len(users)} utilisateurs trouvés dans la liste '{list_name}'")
+        # print(f"✅ {len(users)} utilisateurs trouvés dans la liste '{list_name}', {users}")
         return users
 
     except Exception as e:
@@ -113,7 +113,7 @@ def get_following_list(client: Client, username: str) -> list[str]:
         following_data = client.app.bsky.graph.get_follows({'actor': user_did})
         following_list = [follow.handle for follow in following_data.follows]
 
-        print(f"✅ {len(following_list)} comptes suivis trouvés pour {username}")
+        # print(f"✅ {len(following_list)} comptes suivis trouvés pour {username}")
         return following_list
 
     except Exception as e:
